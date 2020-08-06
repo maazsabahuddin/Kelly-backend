@@ -19,6 +19,10 @@ app.config['MONGODB_HOST'] = DB_URI
 #     'connect': False,
 # }
 
+app.config['MONGODB_SETTINGS'] = {
+    'host': 'mongodb://localhost/Learn',
+    'connect': False,
+}
 
 initialize_db(app)
 
