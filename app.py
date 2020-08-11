@@ -20,7 +20,7 @@ app.config['MONGODB_HOST'] = DB_URI
 # }
 
 app.config['MONGODB_SETTINGS'] = {
-    'host': 'mongodb://localhost/Learn',
+    'host': 'mongodb://localhost/Assistant',
     'connect': False,
 }
 

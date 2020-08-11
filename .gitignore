@@ -22,3 +22,6 @@ htmlcov/
 .coverage
 .coverage.*
 *,cover
+
+py3.5-env
+tensorflow2.2-env

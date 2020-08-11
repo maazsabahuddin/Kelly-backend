@@ -42,25 +42,23 @@ class Register(MethodView):
                     'message': 'Missing body',
                 })
 
-            company = User.objects(company_name=payload['company_name'])
-            if company:
-                return jsonify({
-                    'status': status.HTTP_404_NOT_FOUND,
-                    'message': 'Company already registered with this name',
-                })
+            name = payload.get('name')
+            phone = payload.get('phone_number')
+            email = payload.get('email')
+            password = payload.get('password')
 
-            phone_number = User.objects(phone_number=payload['phone_number'])
+            phone_number = User.objects(phone_number=phone)
             if phone_number:
                 return jsonify({
                     'status': status.HTTP_404_NOT_FOUND,
-                    'message': 'Company already registered with this phone_number',
+                    'message': 'User already registered with this phone_number',
                 })
 
-            hashed_password = hash_password(payload['password'])
+            hashed_password = hash_password(password)
             user = User(
-                company_name=payload['company_name'],
-                phone_number=payload['phone_number'],
-                email=payload['email'],
+                name=name,
+                phone_number=phone,
+                email=email,
                 password=hashed_password,
                 last_login=local_timezone_conversion(datetime.datetime.now()),
                 is_active=True,
@@ -85,7 +83,7 @@ class Register(MethodView):
         except Exception as e:
             return jsonify({
                 'status': status.HTTP_400_BAD_REQUEST,
-                'message': str(e),
+                'message': "Missing body",
             })
 
 
@@ -101,8 +99,10 @@ class Login(MethodView):
         try:
             payload = request.get_json()
 
-            user = User.objects(phone_number=payload['email_or_phone']).first()
-            if check_password_hash(user.password, payload.get('password')):
+            phone_number = payload.get('phone_number')
+            phone_number = phone_number.strip()
+            user = User.objects(phone_number=phone_number).first()
+            if not check_password_hash(user.password, payload.get('password')):
                 return jsonify({
                     'status': status.HTTP_404_NOT_FOUND,
                     'message': 'Invalid Credentials',

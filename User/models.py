@@ -10,9 +10,9 @@ def local_timezone_conversion(utc_datetime):
 
 
 class User(db.Document):
-    company_name = db.StringField(required=True, unique=True)
-    phone_number = db.StringField(required=True, unique=True)
-    email = db.StringField(required=True, unique=True)
+    name = db.StringField(required=True, unique=True)
+    phone_number = db.StringField(unique=True)
+    email = db.StringField(unique=True)
     password = db.StringField(required=True)
     address = db.StringField(null=True)
     last_login = db.DateTimeField()
@@ -21,7 +21,7 @@ class User(db.Document):
     is_admin = db.BooleanField(default=False)
 
     def __str__(self):
-        return "Name - {}".format(self.company_name)
+        return "Name - {}".format(self.name)
 
 
 class UserOTP(db.Document):
