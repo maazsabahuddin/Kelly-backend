@@ -15,7 +15,8 @@ from .models import local_timezone_conversion
 
 class GetUser(MethodView):
 
-    def get(self):
+    @login_required
+    def get(self, token, **kwargs):
         users = User.objects().to_json()
         return Response(users, mimetype="application/json", status=200)
 
@@ -42,10 +43,10 @@ class Register(MethodView):
                     'message': 'Missing body',
                 })
 
-            name = payload.get('name')
-            phone = payload.get('phone_number')
-            email = payload.get('email')
-            password = payload.get('password')
+            name = payload.get('name').strip()
+            phone = payload.get('phone_number').strip()
+            email = payload.get('email').strip()
+            password = payload.get('password').strip()
 
             phone_number = User.objects(phone_number=phone)
             if phone_number:
@@ -99,8 +100,7 @@ class Login(MethodView):
         try:
             payload = request.get_json()
 
-            phone_number = payload.get('phone_number')
-            phone_number = phone_number.strip()
+            phone_number = payload.get('phone_number').strip()
             user = User.objects(phone_number=phone_number).first()
             if not check_password_hash(user.password, payload.get('password')):
                 return jsonify({
@@ -110,6 +110,7 @@ class Login(MethodView):
 
             from app import app
             token_obj = Token.objects(user=user.id).first()
+
             if token_obj:
                 token = jwt.encode({'key': token_obj.key}, app.config['SECRET_KEY'], algorithm='HS256')
                 data = {
@@ -118,6 +119,7 @@ class Login(MethodView):
                     'message': 'Login successfully.',
                 }
                 return jsonify(data)
+
             else:
                 key = uuid.uuid4()
                 user_token = Token(
@@ -131,7 +133,7 @@ class Login(MethodView):
                 return jsonify({
                     'status': status.HTTP_200_OK,
                     'token': token.decode('UTF-8'),
-                    'message': 'Account Successfully created.',
+                    'message': 'Login successfully.',
                 })
 
         except Exception as e:
@@ -157,4 +159,3 @@ class Logout(MethodView):
                 'status': status.HTTP_200_OK,
                 'message': 'Unable to Logout',
             })
-
