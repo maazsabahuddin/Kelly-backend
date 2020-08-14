@@ -11,8 +11,8 @@ def local_timezone_conversion(utc_datetime):
 
 class User(db.Document):
     name = db.StringField(required=True)
-    phone_number = db.StringField(unique=True)
-    email = db.StringField(unique=True)
+    phone_number = db.StringField(unique=True, null=True)
+    email = db.StringField(null=True)
     password = db.StringField(required=True)
     address = db.StringField(null=True)
     last_login = db.DateTimeField()

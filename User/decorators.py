@@ -3,8 +3,9 @@ from functools import wraps
 import jwt
 from flask import jsonify, request
 from flask_api import status
-
-from User.models import Token
+from Main.settings.production import NOT_CATCHABLE_ERROR_CODE, NOT_CATCHABLE_ERROR_MESSAGE
+from User.models import Token, User
+from .exceptions import MissingField, UserNotFound, DuplicateUser, UserException
 
 
 def login_required(f):
@@ -13,8 +14,8 @@ def login_required(f):
     def decorator(*args, **kwargs):
 
         token = None
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
 
         if not token:
             return jsonify({
@@ -31,11 +32,47 @@ def login_required(f):
                     'message': 'Unauthorized attempt.'
                 })
 
+            user = User.objects(phone_number=token_obj.user.phone_number).first()
+            data = {'user': user}
+            return f(args[0], request, data)
+
         except Exception as e:
             return jsonify({
                 'message': 'token is invalid'
             })
 
-        return f(args[0], token_obj, **kwargs)
-
     return decorator
+
+
+# def login_decorator(f):
+#     @wraps(f)
+#     def decorated_function(*args):
+#         try:
+#             # token = request.headers.get('authorization')
+#             token = None
+#             if 'x-access-tokens' in request.headers:
+#                 token = request.headers['x-access-tokens']
+#
+#             if not token:
+#                 raise MissingField(status_code=status.HTTP_400_BAD_REQUEST, message='Token required for authentication.')
+#
+#             user_token = Token.objects.filter(key=token).first()
+#             if not user_token:
+#                 raise UserNotFound(status_code=status.HTTP_404_NOT_FOUND, message='Login session expire.')
+#
+#             # user = CustomUserCheck.check_user_separately(user_token.user.email, user_token.user.phone_number)
+#             user = User.objects(phone_number=user_token.user.phone_number).first()
+#
+#             data = {'user': user}
+#             return f(args[0], request, data)
+#
+#         except (UserNotFound, MissingField, DuplicateUser, UserException) as e:
+#             return jsonify({
+#                 'status': e.status_code,
+#                 'message': e.message,
+#             })
+#
+#         except Exception as e:
+#             return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
+#
+#     return decorated_function

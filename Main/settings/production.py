@@ -6,7 +6,7 @@ TWILIO_AUTH_TOKEN = 'a6ca16a2a6d109987a7379cec069c04b'
 OTP_COUNTER_LIMIT = 5
 
 # kitni der tk otp valid rhega.
-OTP_VALID_TIME = 120
+OTP_VALID_TIME = 1200
 
 # Initial Counter
 OTP_INITIAL_COUNTER = 1
@@ -28,5 +28,8 @@ PHONE_VERIFICATION = True
 
 SENDER_PHONE_NUMBER = '+12029533093'
 
+# Not catchable error message
+NOT_CATCHABLE_ERROR_MESSAGE = "Connection problem, please try again."
+NOT_CATCHABLE_ERROR_CODE = 400
 
 EMAIL_HOST_USER = ''

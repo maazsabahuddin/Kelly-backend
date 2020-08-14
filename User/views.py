@@ -9,15 +9,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
 import jwt
 
-from Main.settings.production import OTP_INITIAL_COUNTER
+from Main.settings.production import OTP_INITIAL_COUNTER, OTP_COUNTER_LIMIT
 from .decorators import login_required
 from .models import User, Token, UserOTP
 from .models import local_timezone_conversion
+from .exceptions import WrongPhonenumber, TwilioException, UserException, WrongOtp, UserNotFound, WrongPassword, \
+    UserNotActive, UserNotAuthorized
+from Main.settings.production import NOT_CATCHABLE_ERROR_MESSAGE, NOT_CATCHABLE_ERROR_CODE
 
 
 # from pymongo import MongoClient
 # from app import DB_URI
 # client = MongoClient(DB_URI)
+from .twilio_func import UserOTPMixin
 
 
 class DelUser(MethodView):
@@ -41,7 +45,7 @@ class DelUser(MethodView):
 class GetUser(MethodView):
 
     @login_required
-    def get(self, token, **kwargs):
+    def get(self, request, data):
         users = User.objects().to_json()
         return Response(users, mimetype="application/json", status=200)
 
@@ -74,6 +78,14 @@ class Register(MethodView):
             email = payload.get('email').strip()
             password = payload.get('password').strip()
 
+            if email:
+                email_obj = User.objects(email=email).first()
+                if email_obj:
+                    return jsonify({
+                        'status': status.HTTP_404_NOT_FOUND,
+                        'message': 'User already registered with this email address',
+                    })
+
             phone_number = User.objects(phone_number=phone).first()
             if phone_number:
                 return jsonify({
@@ -103,13 +115,6 @@ class Register(MethodView):
             )
             user_otp.save()
 
-            result = UserOTPMixin.send_otp_phone_via_twilio(user.phone_number, otp)
-            if not result:
-                return jsonify({
-                    'status': status.HTTP_400_BAD_REQUEST,
-                    'message': 'Invalid phone number.',
-                })
-
             key = uuid.uuid4()
             user_token = Token(
                 key=str(key),
@@ -118,6 +123,13 @@ class Register(MethodView):
 
             from app import app
             token = jwt.encode({'key': user_token.key}, app.config['SECRET_KEY'], algorithm='HS256')
+
+            result = UserOTPMixin.send_otp_phone_via_twilio(user.phone_number, otp)
+            if not result:
+                return jsonify({
+                    'status': status.HTTP_400_BAD_REQUEST,
+                    'message': 'Invalid phone number.',
+                })
 
             return jsonify({
                 'status': status.HTTP_200_OK,
@@ -130,8 +142,39 @@ class Register(MethodView):
             # User.object.delete_one(phone_number=phone).first()
             return jsonify({
                 'status': status.HTTP_400_BAD_REQUEST,
-                'message': "Missing body",
+                'message': "Exception encountered.",
             })
+
+
+class VerifyUser(MethodView):
+
+    @staticmethod
+    def verify_otp(user, otp):
+
+        otp_result = UserOTPMixin.verify_user_otp(user, otp)
+        if not otp_result:
+            return False
+        user.is_active = True
+        user.save()
+        return True
+
+    @login_required
+    def post(self, request, data=None):
+        try:
+            user = data.get('user')
+            payload = request.get_json()
+            otp = payload.get('otp')
+
+            result = VerifyUser.verify_otp(user, otp)
+            if not result:
+                raise WrongOtp(status_code=401, message="OTP not matched.")
+
+            return jsonify({'status': status.HTTP_200_OK, 'message': 'User verified.'})
+
+        except (UserException, WrongOtp, UserNotFound) as e:
+            return jsonify({'status': e.status_code, 'message': e.message})
+        except Exception as e:
+            return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
 
 
 class A(View):
@@ -143,22 +186,22 @@ class A(View):
 class Login(MethodView):
 
     def post(self):
+        token = ''
+        user = ''
         try:
             payload = request.get_json()
 
             phone_number = payload.get('phone_number').strip()
             user = User.objects(phone_number=phone_number).first()
+
             if not user:
-                return jsonify({
-                    'status': status.HTTP_404_NOT_FOUND,
-                    'message': 'The sign-in credentials does not exist. Try again or create a new account',
-                })
+                raise UserNotFound(status_code=status.HTTP_404_NOT_FOUND,
+                                   message='The sign-in credentials does not exist. Try again or create a new account')
 
             if not check_password_hash(user.password, payload.get('password')):
-                return jsonify({
-                    'status': status.HTTP_404_NOT_FOUND,
-                    'message': 'Invalid Credentials',
-                })
+                raise WrongPassword(status_code=401, message="Invalid Credentials.")
+            if not user.is_active:
+                raise UserNotActive(status_code=401, message="User not authenticated. Please verify first.")
 
             from app import app
             token_obj = Token.objects(user=user.id).first()
@@ -187,6 +230,45 @@ class Login(MethodView):
                     'token': token.decode('UTF-8'),
                     'message': 'Login successfully.',
                 })
+
+        except UserNotActive as e:
+            otp = UserOTPMixin.generate_otp()
+            print(otp)
+
+            user_otp = UserOTP.objects.filter(user=user).first()
+            if not user_otp:
+                user_otp = UserOTP.objects.create(user=user)
+            if user_otp.otp_counter >= OTP_COUNTER_LIMIT:
+                return jsonify({
+                    'status': 401,
+                    'message': "User not authenticated. Please contact Sawari helpline."
+                })
+            user_otp.otp = otp
+            user_otp.otp_time = local_timezone_conversion(datetime.datetime.now())
+            user_otp.otp_counter += 1
+            user_otp.save()
+
+            result = UserOTPMixin.send_otp_phone_via_twilio(user.phone_number, otp)
+            if not result:
+                user.is_active = True
+                user.save()
+                return jsonify({
+                    'status': status.HTTP_200_OK,
+                    'token': token.key,
+                    'message': 'User verified and login successfully.',
+                })
+
+            return jsonify({
+                'status': status.HTTP_200_OK,
+                'token': token.key,
+                'message': 'OTP has been successfully sent.',
+            })
+
+        except (WrongPassword, UserNotAuthorized, UserNotFound, TwilioException) as e:
+            return jsonify({
+                'status': e.status_code,
+                'message': str(e.message),
+            })
 
         except Exception as e:
             return jsonify({

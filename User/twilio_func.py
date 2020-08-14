@@ -1,5 +1,5 @@
 import datetime
-
+import pytz
 import math
 import random
 
@@ -8,7 +8,7 @@ from Main.settings.production import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, EMAI
 
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
-from .models import UserOTP
+from .models import UserOTP, local_timezone_conversion
 
 from User.exceptions import InvalidUsage, UserException, UserNotFound, WrongOtp
 
@@ -39,7 +39,7 @@ class UserOTPMixin(object):
     @classmethod
     def verify_user_otp(cls, user, otp):
 
-        otp_user_obj = UserOTP.objects.filter(user=user).first()
+        otp_user_obj = UserOTP.objects(user=user).first()
         if not otp_user_obj:
             raise UserNotFound(status_code=404,
                                message="The sign-in credentials does not exist. Try again or create a new account")
@@ -47,8 +47,9 @@ class UserOTPMixin(object):
             raise WrongOtp(status_code=401,
                            message="OTP not matched. User not authenticated. Please contact Sawari helpline.")
 
-        from django.utils import timezone
-        current_time = timezone.localtime(timezone.now())
+        # from django.utils import timezone
+        # current_time = timezone.localtime(timezone.now())
+        current_time = datetime.datetime.now(pytz.timezone('Asia/Karachi'))
 
         # fetching db time
         OTP_SEND_TIME = otp_user_obj.otp_time
@@ -57,7 +58,8 @@ class UserOTPMixin(object):
         OTP_END_TIME = OTP_SEND_TIME + datetime.timedelta(0, OTP_VALID_TIME)
 
         # convert db time to local time (UTC to LOCAL)
-        otp_end_time_local = cls.utc_to_local(OTP_END_TIME)
+        # otp_end_time_local = cls.utc_to_local(OTP_END_TIME)
+        otp_end_time_local = local_timezone_conversion(OTP_END_TIME)
 
         if current_time > otp_end_time_local:
             raise WrongOtp(status_code=401, message="OTP not matched.")
