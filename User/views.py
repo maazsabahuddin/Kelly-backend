@@ -1,6 +1,7 @@
 from functools import wraps
 import uuid
 import flask
+import transaction as transaction
 from flask import jsonify, request, Response
 from flask.views import View, MethodView
 from flask_api import status
@@ -12,6 +13,29 @@ from Main.settings.production import OTP_INITIAL_COUNTER
 from .decorators import login_required
 from .models import User, Token, UserOTP
 from .models import local_timezone_conversion
+
+
+# from pymongo import MongoClient
+# from app import DB_URI
+# client = MongoClient(DB_URI)
+
+
+class DelUser(MethodView):
+
+    @login_required
+    def post(self):
+
+        payload = request.get_json()
+        if not payload:
+            return jsonify({
+                'status': status.HTTP_400_BAD_REQUEST,
+                'message': 'Missing body',
+            })
+        # Pending state
+
+        return jsonify({
+            'message': 'Method \"POST\" not allowed.'
+        })
 
 
 class GetUser(MethodView):
@@ -35,6 +59,7 @@ def hash_password(password):
 class Register(MethodView):
 
     def post(self):
+        phone = ''
         try:
             payload = request.get_json()
 
@@ -49,7 +74,7 @@ class Register(MethodView):
             email = payload.get('email').strip()
             password = payload.get('password').strip()
 
-            phone_number = User.objects(phone_number=phone)
+            phone_number = User.objects(phone_number=phone).first()
             if phone_number:
                 return jsonify({
                     'status': status.HTTP_404_NOT_FOUND,
@@ -63,26 +88,26 @@ class Register(MethodView):
                 email=email,
                 password=hashed_password,
                 last_login=local_timezone_conversion(datetime.datetime.now()),
-                is_active=True,
+                is_active=False,
                 is_admin=False
             ).save()
 
             from .twilio_func import UserOTPMixin
-            otp = UserOTPMixin.generate_otp
+            otp = UserOTPMixin.generate_otp()
             user_otp = UserOTP(
                 user=user,
                 otp=otp,
                 otp_counter=OTP_INITIAL_COUNTER,
                 is_verified=False,
-                password_reset_uuid=False,
+                password_reset_uuid=None,
             )
             user_otp.save()
 
-            result = UserOTPMixin.send_otp_phone_via_twilio(phone_number, otp)
+            result = UserOTPMixin.send_otp_phone_via_twilio(user.phone_number, otp)
             if not result:
                 return jsonify({
                     'status': status.HTTP_400_BAD_REQUEST,
-                    'message': 'Phonenumber not valid.',
+                    'message': 'Invalid phone number.',
                 })
 
             key = uuid.uuid4()
@@ -97,10 +122,12 @@ class Register(MethodView):
             return jsonify({
                 'status': status.HTTP_200_OK,
                 'token': token.decode('UTF-8'),
-                'message': 'Account Successfully created.',
+                'message': 'OTP has been successfully sent.',
+                # 'message': 'Account Successfully created.',
             })
 
         except Exception as e:
+            # User.object.delete_one(phone_number=phone).first()
             return jsonify({
                 'status': status.HTTP_400_BAD_REQUEST,
                 'message': "Missing body",

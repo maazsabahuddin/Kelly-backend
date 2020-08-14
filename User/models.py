@@ -26,11 +26,11 @@ class User(db.Document):
 
 class UserOTP(db.Document):
     user = db.ReferenceField(User)
-    otp = db.IntField()
+    otp = db.StringField(required=True)
     otp_time = db.DateTimeField(default=local_timezone_conversion(datetime.datetime.now()))
     otp_counter = db.IntField()
     is_verified = db.BooleanField(default=False)
-    password_reset_uuid = db.StringField(required=False)
+    password_reset_uuid = db.StringField(required=False, default=None)
 
 
 class Token(db.Document):

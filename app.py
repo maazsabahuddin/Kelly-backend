@@ -11,18 +11,8 @@ app.config['SECRET_KEY'] = 'LetMeTellYouOneImportantStepOfLife-NeverStopLearning
 app.config['JSON_SORT_KEYS'] = False
 app.register_blueprint(my_view)
 
-DB_URI = "mongodb+srv://maaz:"+MONGO_DB_PW+"@learn-t5bnk.mongodb.net/test?retryWrites=true&w=majority"
+DB_URI = "mongodb+srv://maaz:"+MONGO_DB_PW+"@learn-t5bnk.mongodb.net/Assistant?retryWrites=true&w=majority"
 app.config['MONGODB_HOST'] = DB_URI
-
-# app.config['MONGODB_SETTINGS'] = {
-#     'host': 'mongodb://localhost/Learn',
-#     'connect': False,
-# }
-
-# app.config['MONGODB_SETTINGS'] = {
-#     'host': 'mongodb://localhost/Assistant',
-#     'connect': False,
-# }
 
 initialize_db(app)
 

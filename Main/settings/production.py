@@ -1,6 +1,6 @@
 
 TWILIO_ACCOUNT_SID = 'AC94a5281e5600b2303e1ed17adb02b2a7'
-TWILIO_AUTH_TOKEN = '2cab2cbfc0612c2ac02ecbb04c9f15f3'
+TWILIO_AUTH_TOKEN = 'a6ca16a2a6d109987a7379cec069c04b'
 
 # Changes as per business requirements.
 OTP_COUNTER_LIMIT = 5

@@ -32,7 +32,7 @@ class UserOTPMixin(object):
             )
             return True
 
-        except TwilioRestException:
+        except TwilioRestException as e:
             return False
 
 
