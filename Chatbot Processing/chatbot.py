@@ -322,7 +322,9 @@ min_learning_rate = 0.0001
 keep_probability = 0.5        # http://jmlr.org/papers/volume15/srivastava14a/srivastava14a.pdf
 
 
+# from tensorflow.python.framework import ops
 ## Defining a Tensorflow session
+# ops.reset_default_graph()
 tf.reset_default_graph()      # Reset the tf default graph
 session = tf.InteractiveSession()
 

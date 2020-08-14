@@ -24,4 +24,5 @@ htmlcov/
 *,cover
 
 py3.5-env
+py3.7-env
 tensorflow2.2-env

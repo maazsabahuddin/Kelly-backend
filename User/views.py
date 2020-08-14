@@ -8,8 +8,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
 import jwt
 
+from Main.settings.production import OTP_INITIAL_COUNTER
 from .decorators import login_required
-from .models import User, Token
+from .models import User, Token, UserOTP
 from .models import local_timezone_conversion
 
 
@@ -66,6 +67,24 @@ class Register(MethodView):
                 is_admin=False
             ).save()
 
+            from .twilio_func import UserOTPMixin
+            otp = UserOTPMixin.generate_otp
+            user_otp = UserOTP(
+                user=user,
+                otp=otp,
+                otp_counter=OTP_INITIAL_COUNTER,
+                is_verified=False,
+                password_reset_uuid=False,
+            )
+            user_otp.save()
+
+            result = UserOTPMixin.send_otp_phone_via_twilio(phone_number, otp)
+            if not result:
+                return jsonify({
+                    'status': status.HTTP_400_BAD_REQUEST,
+                    'message': 'Phonenumber not valid.',
+                })
+
             key = uuid.uuid4()
             user_token = Token(
                 key=str(key),
@@ -102,6 +121,12 @@ class Login(MethodView):
 
             phone_number = payload.get('phone_number').strip()
             user = User.objects(phone_number=phone_number).first()
+            if not user:
+                return jsonify({
+                    'status': status.HTTP_404_NOT_FOUND,
+                    'message': 'The sign-in credentials does not exist. Try again or create a new account',
+                })
+
             if not check_password_hash(user.password, payload.get('password')):
                 return jsonify({
                     'status': status.HTTP_404_NOT_FOUND,
