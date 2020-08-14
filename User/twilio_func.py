@@ -25,11 +25,11 @@ class UserOTPMixin(object):
             message_body = 'Kelly, your OTP is: {}'.format(otp)
             sender_phone_number = SENDER_PHONE_NUMBER
 
-            client.messages.create(
-                from_=sender_phone_number,
-                body=message_body,
-                to=phone_number,
-            )
+            # client.messages.create(
+            #     from_=sender_phone_number,
+            #     body=message_body,
+            #     to=phone_number,
+            # )
             return True
 
         except TwilioRestException as e:

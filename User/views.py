@@ -1,5 +1,5 @@
 from functools import wraps
-import uuid
+import uuid, pytz
 import flask
 import transaction as transaction
 from flask import jsonify, request, Response
@@ -127,8 +127,9 @@ class Register(MethodView):
             result = UserOTPMixin.send_otp_phone_via_twilio(user.phone_number, otp)
             if not result:
                 return jsonify({
-                    'status': status.HTTP_400_BAD_REQUEST,
-                    'message': 'Invalid phone number.',
+                    'status': status.HTTP_200_OK,
+                    'token': token.decode('UTF-8'),
+                    'message': 'Phonenumber is not verified on your twilio trial account. OTP not sent.',
                 })
 
             return jsonify({
@@ -258,9 +259,14 @@ class Login(MethodView):
                     'message': 'User verified and login successfully.',
                 })
 
+            from app import app
+            token_obj = Token.objects(user=user.id).first()
+            if token_obj:
+                token = jwt.encode({'key': token_obj.key}, app.config['SECRET_KEY'], algorithm='HS256')
+
             return jsonify({
                 'status': status.HTTP_200_OK,
-                'token': token.key,
+                'token': token.decode('UTF-8'),
                 'message': 'OTP has been successfully sent.',
             })
 
