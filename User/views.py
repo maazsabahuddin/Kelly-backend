@@ -14,7 +14,7 @@ from .decorators import login_required
 from .models import User, Token, UserOTP
 from .models import local_timezone_conversion
 from .exceptions import WrongPhonenumber, TwilioException, UserException, WrongOtp, UserNotFound, WrongPassword, \
-    UserNotActive, UserNotAuthorized
+    UserNotActive, UserNotAuthorized, MissingField, InvalidUsage
 from Main.settings.production import NOT_CATCHABLE_ERROR_MESSAGE, NOT_CATCHABLE_ERROR_CODE
 
 
@@ -326,5 +326,47 @@ class UserDetails(MethodView):
                 'phone_number': user.phone_number,
             })
 
+        except Exception as e:
+            return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
+
+
+class UpdateName(MethodView):
+
+    @staticmethod
+    def has_numbers(name):
+        return any(char.isdigit() for char in name)
+
+    @staticmethod
+    def check_string_for_numbers(**kwargs):
+        first_name = kwargs.get('first_name')
+        last_name = kwargs.get('last_name')
+
+        name = first_name + ' ' + last_name
+        return any(char.isdigit() for char in name)
+
+    @login_required
+    def post(self, request, data=None):
+        try:
+            user = data.get('user')
+            payload = request.get_json()
+            name = payload.get('name')
+
+            if not name:
+                raise MissingField(status_code=400, message='Field missing.')
+
+            if UpdateName.check_string_for_numbers(first_name=name, last_name=''):
+                raise InvalidUsage(status_code=400, message='Name cannot contain digits.')
+
+            user.name = name
+            user.save()
+
+            return jsonify({
+                'status': status.HTTP_200_OK,
+                'name': user.name,
+                'message': "Your name successfully updated.",
+            })
+
+        except (MissingField, InvalidUsage) as e:
+            return jsonify({'status': e.status_code, 'message': e.message})
         except Exception as e:
             return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
