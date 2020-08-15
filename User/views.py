@@ -286,16 +286,45 @@ class Login(MethodView):
 class Logout(MethodView):
 
     @login_required
-    def get(self, token_obj, **kwargs):
+    def get(self, request, data=None):
         try:
-            token_obj.delete()
-            return jsonify({
-                'status': status.HTTP_200_OK,
-                'message': 'Logged Out!',
-            })
+            user = data.get('user')
+            user_token = Token.objects.filter(user=user).first()
 
+            is_logout = user_token.delete()
+            if not is_logout:
+                return jsonify({
+                    'status': status.HTTP_200_OK,
+                    'message': 'Logged out',
+                })
+            return jsonify({
+                'status': status.HTTP_404_NOT_FOUND,
+                'message': 'Unable to logout',
+            })
         except ValueError as e:
             return jsonify({
                 'status': status.HTTP_200_OK,
                 'message': 'Unable to Logout',
             })
+
+
+class UserDetails(MethodView):
+
+    @login_required
+    def get(self, request, data=None):
+        try:
+            user = data.get('user')
+            if not user.email:
+                user.email = ""
+            if not user.phone_number:
+                user.phone_number = ""
+
+            return jsonify({
+                'status': status.HTTP_200_OK,
+                'email': user.email,
+                'name': user.name,
+                'phone_number': user.phone_number,
+            })
+
+        except Exception as e:
+            return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
