@@ -10,7 +10,7 @@ import datetime
 import jwt
 
 from Main.settings.production import OTP_INITIAL_COUNTER, OTP_COUNTER_LIMIT
-from .decorators import login_required
+from .decorators import login_required, password_change_decorator
 from .models import User, Token, UserOTP
 from .models import local_timezone_conversion
 from .exceptions import WrongPhonenumber, TwilioException, UserException, WrongOtp, UserNotFound, WrongPassword, \
@@ -368,5 +368,22 @@ class UpdateName(MethodView):
 
         except (MissingField, InvalidUsage) as e:
             return jsonify({'status': e.status_code, 'message': e.message})
+        except Exception as e:
+            return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
+
+
+class ChangePassword(MethodView):
+
+    @login_required
+    @password_change_decorator
+    def post(self, request, data=None):
+        try:
+            user = data.get('user')
+            password = data.get('password')
+
+            user.password = password
+            user.save()
+            return jsonify({'status': status.HTTP_200_OK, 'message': 'Password has been changed.'})
+
         except Exception as e:
             return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})

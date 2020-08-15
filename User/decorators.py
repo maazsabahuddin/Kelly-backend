@@ -76,3 +76,25 @@ def login_required(f):
 #             return jsonify({'status': NOT_CATCHABLE_ERROR_CODE, 'message': NOT_CATCHABLE_ERROR_MESSAGE})
 #
 #     return decorated_function
+
+def password_change_decorator(f):
+    def password_change(*args):
+        request = args[1]
+        user = args[2].get('user')
+
+        payload = request.get_json()
+        password = payload.get('password')
+
+        password = password.strip()
+        if not user:
+            raise MissingField(status_code=400, message="Pin required")
+
+        from .views import hash_password
+        hashed_password = hash_password(password)
+        # if user.check_password(hashed_password):
+        #     raise UserException(status_code=400, message="You cannot set old pin as new pin.")
+
+        data = {'user': user, 'password': hashed_password}
+        return f(args[0], request, data)
+
+    return password_change
